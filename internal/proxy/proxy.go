@@ -190,6 +190,12 @@ func (p *Proxy) handleAlerts(w http.ResponseWriter, r *http.Request) {
 	tenant := r.Header.Get("X-Scope-OrgID")
 	p.m.received.Add(int64(len(alerts)))
 	p.EnrichAll(r.Context(), tenant, alerts)
+	if p.cfg.Logger.Enabled(r.Context(), slog.LevelDebug) {
+		for _, a := range alerts {
+			p.cfg.Logger.Debug("alert", "path", r.URL.Path, "tenant", tenant, "labels", a.Labels,
+				"generatorURL", a.GeneratorURL, "query", a.Annotations[AnnQuery], "error", a.Annotations[AnnError])
+		}
+	}
 	if err := p.forward(r.Context(), tenant, r.Header.Get("Authorization"), alerts); err != nil {
 		p.cfg.Logger.Error("forward failed", "err", err)
 		http.Error(w, err.Error(), http.StatusBadGateway)

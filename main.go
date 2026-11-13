@@ -91,15 +91,22 @@ func serve(args []string) int {
 	grafanaPassFile := fs.String("grafana.password-file", "", "file with the Grafana password")
 	grafanaTokenFile := fs.String("grafana.token-file", "", "file with a Grafana service account token (or $GRAFANA_TOKEN)")
 	logJSON := fs.Bool("log.json", false, "log as JSON")
+	logLevel := fs.String("log.level", "info", "debug, info, warn or error")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
 		}
 		return 2
 	}
-	var h slog.Handler = slog.NewTextHandler(os.Stderr, nil)
+	var lvl slog.Level
+	if err := lvl.UnmarshalText([]byte(*logLevel)); err != nil {
+		fmt.Fprintln(os.Stderr, "loki-alert-lines: -log.level:", err)
+		return 2
+	}
+	hopts := &slog.HandlerOptions{Level: lvl}
+	var h slog.Handler = slog.NewTextHandler(os.Stderr, hopts)
 	if *logJSON {
-		h = slog.NewJSONHandler(os.Stderr, nil)
+		h = slog.NewJSONHandler(os.Stderr, hopts)
 	}
 	logger := slog.New(h)
 	var err error

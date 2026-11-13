@@ -310,11 +310,27 @@ receivers:
 			"-e", "GF_SERVER_ROOT_URL="+grafanaURL+"/", "-e", "GF_SECURITY_ADMIN_PASSWORD=admin",
 			"-e", "GF_PATHS_PROVISIONING=/etc/lal-e2e/grafana", "-e", "GF_ANALYTICS_REPORTING_ENABLED=false",
 			"-e", "GF_ANALYTICS_CHECK_FOR_UPDATES=false", "-e", "GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES=false",
-			"-e", "GF_PLUGINS_PREINSTALL_DISABLED=true", "-e", "GF_LOG_LEVEL=warn", grafanaImage)
+			"-e", "GF_PLUGINS_PREINSTALL_DISABLED=true", "-e", "GF_LOG_LEVEL=warn",
+			"-e", "GF_LOG_FILTERS=ngalert:info,provisioning:info,ngalert.notifier:debug", grafanaImage)
 		defer func() {
 			if t.Failed() {
-				out, _ := exec.Command("docker", "logs", "--tail", "60", name+"-grafana").CombinedOutput()
-				t.Logf("grafana logs:\n%s", out)
+				out, _ := exec.Command("docker", "logs", "--tail", "150", name+"-grafana").CombinedOutput()
+				var keep []string
+				for _, l := range strings.Split(string(out), "\n") {
+					if !strings.Contains(l, "manifest watcher") && !strings.Contains(l, "Skipping migration") {
+						keep = append(keep, l)
+					}
+				}
+				t.Logf("grafana logs:\n%s", strings.Join(keep, "\n"))
+				for _, path := range []string{"/api/prometheus/grafana/api/v1/rules", "/api/v1/provisioning/contact-points", "/api/v1/provisioning/policies", "/api/alertmanager/grafana/api/v2/alerts"} {
+					req, _ := http.NewRequest(http.MethodGet, grafanaURL+path, nil)
+					req.SetBasicAuth("admin", "admin")
+					if resp, err := http.DefaultClient.Do(req); err == nil {
+						b, _ := io.ReadAll(io.LimitReader(resp.Body, 3000))
+						resp.Body.Close()
+						t.Logf("grafana %s: %d %s", path, resp.StatusCode, b)
+					}
+				}
 			}
 			exec.Command("docker", "rm", "-f", name+"-grafana").Run()
 		}()
@@ -324,7 +340,7 @@ receivers:
 	pargs := []string{fmt.Sprintf("-listen=127.0.0.1:%d", proxyPort),
 		fmt.Sprintf("-alertmanager.url=http://127.0.0.1:%d", amPort),
 		fmt.Sprintf("-loki.url=http://127.0.0.1:%d", lokiPort),
-		"-rules-refresh=2s", "-cache-ttl=0"}
+		"-rules-refresh=2s", "-cache-ttl=0", "-log.level=debug"}
 	if grafanaImage != "" {
 		pargs = append(pargs, "-grafana.url="+grafanaURL, "-grafana.username=admin")
 	}
@@ -434,6 +450,12 @@ receivers:
 			}
 		}
 		return true
+	}, func() {
+		keys := make([]string, 0, len(got))
+		for k := range got {
+			keys = append(keys, k)
+		}
+		t.Logf("enriched alerts seen: %v, want %v", keys, want)
 	})
 	for k, a := range got {
 		t.Logf("%s generatorURL=%q\n  query: %s\n  lines:\n%s\n  error: %s", k, a.GeneratorURL, a.Annotations["log_lines_query"], indent(a.Annotations["log_lines"]), a.Annotations["log_lines_error"])
@@ -514,7 +536,7 @@ func indent(s string) string {
 	return "    " + strings.ReplaceAll(s, "\n", "\n    ")
 }
 
-func waitFor(t *testing.T, d time.Duration, what string, f func() bool) {
+func waitFor(t *testing.T, d time.Duration, what string, f func() bool, onFail ...func()) {
 	t.Helper()
 	deadline := time.Now().Add(d)
 	for time.Now().Before(deadline) {
@@ -522,6 +544,9 @@ func waitFor(t *testing.T, d time.Duration, what string, f func() bool) {
 			return
 		}
 		time.Sleep(time.Second)
+	}
+	for _, g := range onFail {
+		g()
 	}
 	t.Fatalf("timeout after %s waiting for %s", d, what)
 }

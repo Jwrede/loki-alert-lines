@@ -228,7 +228,7 @@ unchanged. A failed Loki query never blocks an alert.
 -cache-ttl 30s                cache identical queries (HA rulers send the same alert twice)
 -ignore-label NAME            never filter on this label (repeatable)
 -query-annotation logs_query
--log.json
+-log.json, -log.level info
 ```
 
 `/metrics` exposes counters for received, enriched and skipped alerts, Loki
