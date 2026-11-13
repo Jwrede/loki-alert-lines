@@ -423,6 +423,7 @@ func TestGrafanaManagedAlert(t *testing.T) {
 	alert := Alert{
 		Labels:       map[string]string{"alertname": "GrafanaErrors", "app": "api", "severity": "ticket", "grafana_folder": "e2e"},
 		StartsAt:     now.Add(-time.Minute).Format(time.RFC3339Nano),
+		EndsAt:       "0001-01-01T00:00:00Z", // as sent by Grafana 13.3.1 for a firing alert
 		GeneratorURL: g.URL + "/alerting/grafana/rule-1/view?orgId=1",
 	}
 	post(t, p, "/api/v2/alerts", "", []Alert{alert, alert})

@@ -227,7 +227,8 @@ func (p *Proxy) enrich(ctx context.Context, tenant string, a *Alert) {
 	}
 	ann := a.Annotations
 	if a.EndsAt != "" {
-		if t, err := time.Parse(time.RFC3339Nano, a.EndsAt); err == nil && !t.After(now) {
+		// Grafana sends firing alerts with endsAt 0001-01-01T00:00:00Z.
+		if t, err := time.Parse(time.RFC3339Nano, a.EndsAt); err == nil && t.Unix() > 0 && !t.After(now) {
 			p.m.skipped.Add(1)
 			return // resolved
 		}
