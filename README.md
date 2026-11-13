@@ -129,7 +129,7 @@ docker build -t loki-alert-lines . && docker run --rm -p 9097:9097 loki-alert-li
   -loki.url=http://loki:3100 -alertmanager.url=http://alertmanager:9093
 ```
 
-Release binaries are on the releases page when a tag exists.
+The tag `v0.1.0` marks the state tested in CI.
 
 ## Set up
 
