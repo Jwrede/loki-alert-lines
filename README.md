@@ -129,7 +129,7 @@ docker build -t loki-alert-lines . && docker run --rm -p 9097:9097 loki-alert-li
   -loki.url=http://loki:3100 -alertmanager.url=http://alertmanager:9093
 ```
 
-The tag `v0.1.0` marks the state tested in CI.
+Static binaries for Linux, macOS and Windows (amd64, arm64) with checksums are on the [releases page](https://github.com/Jwrede/loki-alert-lines/releases).
 
 ## Set up
 
